@@ -83,3 +83,8 @@ def test_agent_returns_empty_for_no_match() -> None:
     s = AgentSearcher(EXAMPLES, FakeVector(), FakeChat(parsed(), sel))
     assert s.search("車を直したい") == []
     assert s.last_no_match_reason == "DIYの作例ではない"
+
+
+def test_outdoor_is_not_a_filter() -> None:
+    # 室内用でも、材料を変えれば屋外で参考になるので除外しない
+    assert not violates(make("A", "室内の棚"), "屋外で使う")
