@@ -30,6 +30,7 @@ class Run:
     results: list[Result]
     seconds: float
     usage: Usage
+    error: str | None = None  # APIエラーで答えられなかったとき
 
 
 def build_searchers(names: list[str], examples: list[Example], meter: UsageMeter) -> list[Searcher]:
@@ -53,10 +54,15 @@ def run_all(searchers: list[Searcher], queries: list[Query], meter: UsageMeter) 
         for q in queries:
             before = meter.snapshot()
             t0 = time.perf_counter()
-            results = s.search(q.text, k=5)
+            error = None
+            try:
+                results = s.search(q.text, k=5)
+            except Exception as e:  # 1問の失敗で全体を止めない。結果には「エラー」として残す
+                results, error = [], f"{type(e).__name__}: {str(e)[:120]}"
             seconds = time.perf_counter() - t0
-            runs.append(Run(q, s.name, results, seconds, meter.snapshot() - before))
-            print(f"  {s.name:7s} {q.id}: {[r.example_id for r in results]} ({seconds:.2f}s)")
+            runs.append(Run(q, s.name, results, seconds, meter.snapshot() - before, error))
+            shown = error or [r.example_id for r in results]
+            print(f"  {s.name:7s} {q.id}: {shown} ({seconds:.2f}s)")
     return runs
 
 
@@ -110,7 +116,9 @@ def _type_table(by_method: dict[str, list[Run]], judgments: Judgments) -> list[s
     return lines
 
 
-def _fmt_results(q: Query, results: list[Result], judgments: Judgments) -> str:
+def _fmt_results(q: Query, results: list[Result], judgments: Judgments, error: str | None = None) -> str:
+    if error:
+        return f"（エラー：{error}）"
     if not results:
         return "（該当なし）"
     return "、".join(f"{r.example_id}[{grade(judgments, q.id, r.example_id)}]" for r in results)
@@ -125,7 +133,7 @@ def _misses(by_method: dict[str, list[Run]], judgments: Judgments) -> list[str]:
             else:
                 missed = not hit_at_k(judgments, r.query.id, r.results)
             if missed:
-                lines.append(f"| {method} | {r.query.id} | {r.query.type} | {r.query.text} | {_fmt_results(r.query, r.results, judgments)} |")
+                lines.append(f"| {method} | {r.query.id} | {r.query.type} | {r.query.text} | {_fmt_results(r.query, r.results, judgments, r.error)} |")
     return lines if len(lines) > 2 else ["外れた質問はありません。"]
 
 
@@ -153,7 +161,10 @@ def write_report(runs: list[Run], judgments: Judgments, query_set: str) -> str:
         out += ["## 自分で書いた質問（別集計）", "", *_summary_table(g, judgments), "",
                 "### 外れた質問", "", *_misses(g, judgments), ""]
     out += ["## 全結果", "", "| 方式 | 質問 | 返した作例[grade] | 時間 |", "|---|---|---|---|"]
-    out += [f"| {r.method} | {r.query.id} | {_fmt_results(r.query, r.results, judgments)} | {r.seconds:.2f}s |" for r in runs]
+    out += [f"| {r.method} | {r.query.id} | {_fmt_results(r.query, r.results, judgments, r.error)} | {r.seconds:.2f}s |" for r in runs]
+    errors = [r for r in runs if r.error]
+    if errors:
+        out.insert(4, f"> **注意**：{len(errors)}件がAPIエラーで答えられず、外れとして数えています（全結果の表を参照）。\n")
 
     RESULTS_DIR.mkdir(exist_ok=True)
     path = RESULTS_DIR / f"{now:%Y%m%d-%H%M}{'' if query_set == 'test' else '-' + query_set}.md"
