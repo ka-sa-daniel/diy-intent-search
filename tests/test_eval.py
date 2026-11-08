@@ -34,4 +34,22 @@ def test_report_counts_no_match_only_for_agent(tmp_path, monkeypatch) -> None:
     ]
     text = open(ev.write_report(runs, JUDG, "dev"), encoding="utf-8").read()
     assert "| keyword | 1 | 100% | 100% | 対象外 |" in text
-    assert "| agent | 1 | 0% | 0% | 100% |" in text
+    assert "| agent | 1 | 0% | 0% | 100%（1/1） |" in text
+
+
+def test_own_without_answer_counts_as_no_match(tmp_path, monkeypatch) -> None:
+    # 自作の質問で grade 1以上の作例がないものは「該当なし」の問題として数える
+    monkeypatch.setattr(ev, "RESULTS_DIR", tmp_path)
+    q_ok = Query(id="Q1", type="own", text="x")
+    q_none = Query(id="Q9", type="own", text="z")
+    runs = [ev.Run(q_ok, "agent", [r("B")], 1.0, Usage()), ev.Run(q_none, "agent", [], 1.0, Usage())]
+    assert ev.expects_no_match(q_none, JUDG) and not ev.expects_no_match(q_ok, JUDG)
+    text = open(ev.write_report(runs, JUDG, "dev"), encoding="utf-8").read()
+    assert "| agent | 1 | 100% | 100% | 100%（1/1） |" in text
+
+
+def test_runs_round_trip(tmp_path) -> None:
+    q = Query(id="Q1", type="own", text="x")
+    runs = [ev.Run(q, "agent", [r("B")], 1.5, Usage(10, 2, 3), None)]
+    ev.save_runs(runs, tmp_path / "a.json")
+    assert ev.load_runs(tmp_path / "a.json") == runs
