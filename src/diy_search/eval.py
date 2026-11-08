@@ -11,7 +11,8 @@ from datetime import datetime
 
 from diy_search.config import RESULTS_DIR
 from diy_search.data import load_examples, load_judgments, load_queries
-from diy_search.gemini import GeminiEmbedder
+from diy_search.agent import AgentSearcher
+from diy_search.gemini import GeminiChat, GeminiEmbedder
 from diy_search.keyword import KeywordSearcher
 from diy_search.metrics import Judgments, grade, hit_at_k, rate, top1
 from diy_search.models import Example, Query, Result, Searcher
@@ -38,8 +39,11 @@ def build_searchers(names: list[str], examples: list[Example], meter: UsageMeter
             searchers.append(KeywordSearcher(examples))
         elif name == "vector":
             searchers.append(VectorSearcher(examples, GeminiEmbedder(meter)))
+        elif name == "agent":
+            vector = VectorSearcher(examples, GeminiEmbedder(meter))
+            searchers.append(AgentSearcher(examples, vector, GeminiChat(meter)))
         else:
-            print(f"[skip] {name}: まだ実装していません")
+            raise SystemExit(f"不明な方式：{name}")
     return searchers
 
 

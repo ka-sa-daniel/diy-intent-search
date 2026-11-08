@@ -34,11 +34,13 @@ class EmbeddingCache:
         return f"{model}:{task_type}:{hashlib.sha256(text.encode()).hexdigest()}"
 
     def get_or_compute(self, embedder: Embedder, texts: list[str], task_type: str) -> np.ndarray:
-        keys = [self.key(embedder.model, task_type, t) for t in texts]
+        # 埋め込み方（プレフィックスの有無）が変わったら別のキーにする
+        mode = task_type + (":prefix" if getattr(embedder, "use_prefix", False) else "")
+        keys = [self.key(embedder.model, mode, t) for t in texts]
         missing = [t for t, k in zip(texts, keys) if k not in self.data]
         if missing:
             for t, v in zip(missing, embedder.embed(missing, task_type)):
-                self.data[self.key(embedder.model, task_type, t)] = v
+                self.data[self.key(embedder.model, mode, t)] = v
             self.path.parent.mkdir(parents=True, exist_ok=True)
             self.path.write_text(json.dumps(self.data))
         return np.array([self.data[k] for k in keys], dtype=np.float32)

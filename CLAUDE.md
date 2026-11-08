@@ -28,7 +28,9 @@
 - REST API：FastAPI（入出力はPydanticの型で定義する）
 - LLMと埋め込み：Gemini API（無料枠）。公式SDK `google-genai` を使う
   - 作例（Claude）、評価用の質問（ChatGPT）、検索（Gemini）を、それぞれ別の会社のLLMにするため
-  - チャットはFlash系のモデル、埋め込みは `gemini-embedding-2`。使えるモデルと上限は、実装前に確認する
+  - チャットは `gemini-3.5-flash`（3.8・3.7は無料枠で応答しないことが続いたため）、埋め込みは `gemini-embedding-2`
+  - `gemini-embedding-2` は `task_type` を無視する。代わりに本文の先頭に用途を書く（質問：`task: search result | query: `、作例：`title: none | text: `）
+  - 無料枠の埋め込みは、1件ごとに1リクエストと数えられる（1分100件まで）
   - モデル名は設定で切り替えられるようにする
   - APIキーは環境変数 `GEMINI_API_KEY` から読む。ファイルに書かない。コミットしない
   - 課金は有効にしない。無料枠の回数制限に当たったら、待って再試行する（間隔を空けて呼ぶ）
