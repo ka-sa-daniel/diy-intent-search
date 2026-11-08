@@ -1,0 +1,37 @@
+[project]
+name = "diy-search"
+version = "0.1.0"
+description = "DIY作例ナビ（PoC）：普段の言葉からDIY作例を探す3方式の比較"
+readme = "README.md"
+authors = [
+    { name = "ka-sa-daniel", email = "259336662+ka-sa-daniel@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "bm25s>=0.3.16",
+    "fastapi>=0.162.2",
+    "google-genai>=3.0.0",
+    "numpy>=2.5.4",
+    "pydantic>=2.14.3",
+    "sudachidict-core>=20261015",
+    "sudachipy>=0.7.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+serve = "diy_search.api:run"
+eval = "diy_search.eval:main"
+check-models = "diy_search.check_models:main"
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

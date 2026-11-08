@@ -1,0 +1,23 @@
+# gitに登録しないもの（計画メモなど）
+/private/
+
+# 秘密情報
+.env
+*.key
+
+# ビルド
+.gradle/
+build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+
+# 埋め込みのキャッシュ
+.cache/
