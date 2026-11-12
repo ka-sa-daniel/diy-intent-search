@@ -50,13 +50,23 @@ flowchart LR
 - **寸法では除外しません**。寸法が違っても参考になる作例を出すためです。桁が違うもの（3倍以上の差）だけ順位を下げます
 - 作例は30件なので、DBは使わず、numpyで計算しています
 
-| 部分 | 使ったもの |
-|---|---|
-| 言語・パッケージ管理 | Python 3.12、uv |
-| REST API | FastAPI（入出力はPydanticの型） |
-| キーワード検索 | SudachiPy（辞書core、正規化形）、bm25s |
-| LLM・埋め込み | Gemini API（`gemini-3.6-flash`、`gemini-embedding-2`）、SDK `google-genai` |
-| テスト | pytest（APIを呼ばない部分だけ） |
+### 技術選定
+
+| 部分 | 使ったもの | 比べた候補 | 選んだ理由 |
+|---|---|---|---|
+| 言語 | Python 3.12 | TypeScript、Go、Scala、Java | 一番使い慣れている。AIエージェントのバックエンドで広く使われ、LLMや評価の道具がそろっている |
+| REST API | FastAPI（入出力はPydanticの型） | Flask、Django＋DRF、Litestar | 型チェックとAPIの説明ページ（`/docs`）が自動で付き、少ないコードで書ける。方式3の構造化出力と同じ型を使い回せる |
+| 形態素解析 | SudachiPy（辞書core、正規化形） | MeCab（fugashi）、Janome、GiNZA、文字n-gram | 表記ゆれ（ネジ／ねじ、すき間／隙間）をそろえられる。比べる相手のキーワード検索を、不当に弱くしないため |
+| キーワード検索の計算 | bm25s（BM25） | rank_bm25 | 今も保守されていて軽い |
+| LLM・埋め込み | Gemini API（`gemini-3.6-flash`、`gemini-embedding-2`）、SDK `google-genai` | OpenAI API、ChatGPTの画面から呼ぶ方法、手元の埋め込みモデル | 作例（Claude）・質問（ChatGPT）と別の会社にするため。まず無料枠で試し、足りなくなった時点で、利用額に上限をかけて有料枠にした |
+| ベクトル検索 | numpy（メモリ上でコサイン類似度） | ベクトルDB | 作例30件ならDBは要らない。計算の中身が見える |
+| テスト・実行 | pytest、uv | － | pytestは使ったことがあり、Pythonのテストで広く使われている。uvは `uv run eval` の1コマンドで、環境づくりから評価まで再現できる |
+
+**注意点・あきらめたこと**
+- **FastAPI**：開発が少数の中心メンバーに依存している、という指摘があります。小規模なPoCでは問題になりませんが、業務で長く使うサービスなら、保守の体制やコミュニティの厚さも確かめてから選びます
+- **SudachiPy**：MeCabより遅いですが、作例30件では差が出ません
+- **Gemini API**：チャットのモデルは、より新しい版（3.7・3.8）が応答しない状態が続いたため、安定して動く3.6を選びました。モデル名は環境変数で切り替えられます
+- **LangChainなどの枠組みは使っていません**：方式3は手順が決まった処理なので、自分で書いた方が中身を説明しやすいためです。ツール呼び出し型のエージェントと比べるときには、使うことを検討します
 
 ## 結果
 
@@ -195,6 +205,7 @@ uv run eval --rebuild results/XXXX.json   # APIを呼ばずに、記録から表
 uv run check-models             # 使えるモデルの確認
 ```
 
+- `uv run pytest` のテストは、APIを呼ばない部分（形態素解析、BM25、寸法での並べ替え、指標の計算）だけです。APIキーがなくても動きます。LLMを使う部分は、評価（`uv run eval`）で確かめます
 - `method` は `keyword`・`vector`・`agent` のどれか（省略すると `agent`）
 - 応答には、作例の全項目（材料を含む）、方式3の理由と寸法の違い、読み取った要望が入ります
 - モデルは環境変数 `DIY_CHAT_MODEL`・`DIY_EMBED_MODEL` で切り替えられます
